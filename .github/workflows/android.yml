@@ -17,7 +17,21 @@ jobs:
         with:
           version: 4.5.1
           use-dotnet: false
-          include-export-templates: true
+          include-export-templates: false
+
+      - name: Install Godot Android export templates
+        run: |
+          set -e
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          curl -L --fail --retry 3 \
+            -o /tmp/godot_templates.tpz \
+            https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          unzip -j -o /tmp/godot_templates.tpz 'templates/android_debug.apk' \
+            -d "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          unzip -j -o /tmp/godot_templates.tpz 'templates/android_release.apk' \
+            -d "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          test -f "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk"
+          test -f "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_release.apk"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -32,13 +46,21 @@ jobs:
         run: |
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Verify Godot export configuration
+        run: |
+          godot --headless --path . --editor --quit
+          grep -A8 '^\[preset.0\]' export_presets.cfg
+          ls -lh "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
+
       - name: Export APK
         run: |
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/BattleRoyaleMobile.apk
+          test -s build/BattleRoyaleMobile.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: BattleRoyaleMobile-APK
           path: build/BattleRoyaleMobile.apk
+          if-no-files-found: error
