@@ -99,6 +99,10 @@ EOF
           ls -lh "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
 
       - name: Export APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ env.HOME }}/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           set -e
           mkdir -p build
