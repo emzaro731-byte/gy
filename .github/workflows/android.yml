@@ -41,10 +41,17 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
-      - name: Install Android packages
+      - name: Install Android build packages
         run: |
+          set -e
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          adb version
+          adb start-server
+          adb devices
 
       - name: Verify Godot project and export configuration
         run: |
@@ -59,6 +66,7 @@ jobs:
         run: |
           set -e
           mkdir -p build
+          adb start-server || true
           godot --headless --path . --export-debug "Android" build/BattleRoyaleMobile.apk
           test -s build/BattleRoyaleMobile.apk
           ls -lh build/BattleRoyaleMobile.apk
