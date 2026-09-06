@@ -17,7 +17,7 @@ jobs:
         with:
           version: 4.5.1
           use-dotnet: false
-          include-export-templates: false
+          include-templates: false
 
       - name: Install Godot Android export templates
         run: |
@@ -46,17 +46,22 @@ jobs:
         run: |
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Verify Godot export configuration
+      - name: Verify Godot project and export configuration
         run: |
+          set -e
           godot --headless --path . --editor --quit
-          grep -A8 '^\[preset.0\]' export_presets.cfg
+          echo "--- Export preset ---"
+          cat export_presets.cfg
+          echo "--- Installed templates ---"
           ls -lh "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
 
       - name: Export APK
         run: |
+          set -e
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/BattleRoyaleMobile.apk
           test -s build/BattleRoyaleMobile.apk
+          ls -lh build/BattleRoyaleMobile.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
