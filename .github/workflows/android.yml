@@ -8,10 +8,14 @@ on:
 permissions:
   contents: read
 
+env:
+  GODOT_VERSION: 4.5.1
+
 jobs:
   build:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,12 +30,12 @@ jobs:
       - name: Install Godot Android export templates
         run: |
           set -euo pipefail
-          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p "$TEMPLATE_DIR"
-          curl -L --fail --retry 5 -o /tmp/godot_templates.tpz https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          curl -L --fail --retry 5 -o /tmp/godot_templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           unzip -j -o /tmp/godot_templates.tpz 'templates/android_debug.apk' -d "$TEMPLATE_DIR"
           unzip -j -o /tmp/godot_templates.tpz 'templates/android_release.apk' -d "$TEMPLATE_DIR"
-          printf '4.5.1.stable\n' > "$TEMPLATE_DIR/version.txt"
+          printf '%s.stable\n' "$GODOT_VERSION" > "$TEMPLATE_DIR/version.txt"
           test -s "$TEMPLATE_DIR/android_debug.apk"
           test -s "$TEMPLATE_DIR/android_release.apk"
 
@@ -77,6 +81,8 @@ export/android/debug_keystore_pass = "android"
 export/android/force_system_user = false
 export/android/shutdown_adb_on_exit = true
 EOF
+          echo "Godot Android SDK: $ANDROID_HOME"
+          echo "Godot Java SDK: $JAVA_HOME"
           test -x "$JAVA_HOME/bin/java"
           test -x "$ANDROID_HOME/platform-tools/adb"
           test -d "$ANDROID_HOME/platforms/android-35"
