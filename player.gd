@@ -17,7 +17,15 @@ func _process(delta: float) -> void:
     queue_redraw()
 
 func move_direction() -> Vector2:
-    var d := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+    var d := Vector2.ZERO
+    if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+        d.x -= 1.0
+    if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+        d.x += 1.0
+    if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+        d.y -= 1.0
+    if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+        d.y += 1.0
     return d.normalized() if d.length() > 0.0 else Vector2.ZERO
 
 func try_fire(target: Vector2) -> bool:
