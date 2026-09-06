@@ -54,8 +54,8 @@ func _physics_process(delta: float) -> void:
     if reload_timer > 0.0:
         reload_timer -= delta
         if reload_timer <= 0.0:
-            var need := 30 - ammo
-            var take := min(need, reserve_ammo)
+            var need: int = 30 - ammo
+            var take: int = min(need, reserve_ammo)
             ammo += take
             reserve_ammo -= take
 
