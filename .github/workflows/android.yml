@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -87,12 +87,6 @@ EOF
         run: |
           set -euo pipefail
           godot --headless --path . --editor --quit
-
-      - name: Validate Android preset
-        run: |
-          set -euo pipefail
-          godot --headless --path . --editor --quit --verbose 2>&1 | tee /tmp/godot-editor.log
-          grep -q 'Android' /tmp/godot-editor.log || true
 
       - name: Export APK
         env:
