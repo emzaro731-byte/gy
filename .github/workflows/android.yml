@@ -33,7 +33,6 @@ jobs:
           printf '4.5.1.stable\n' > "$HOME/.local/share/godot/export_templates/4.5.1.stable/version.txt"
           test -f "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk"
           test -f "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_release.apk"
-          test -f "$HOME/.local/share/godot/export_templates/4.5.1.stable/version.txt"
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -59,32 +58,35 @@ jobs:
         run: |
           set -e
           mkdir -p "$HOME/.config/godot" "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US" \
-              -noprompt
-          fi
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
-          [gd_resource type="EditorSettings" format=3]
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -noprompt 2>/dev/null || true
+          cat > "$HOME/.config/godot/editor_settings-4.5.tres" <<EOF
+[gd_resource type="EditorSettings" format=3]
 
-          [resource]
-          export/android/android_sdk_path = "$ANDROID_HOME"
-          export/android/java_sdk_path = "$JAVA_HOME"
-          export/android/debug_keystore = "$HOME/.android/debug.keystore"
-          export/android/debug_keystore_user = "androiddebugkey"
-          export/android/debug_keystore_pass = "android"
-          export/android/shutdown_adb_on_exit = true
-          EOF
+[resource]
+export/android/android_sdk_path = "$ANDROID_HOME"
+export/android/java_sdk_path = "$JAVA_HOME"
+export/android/debug_keystore = "$HOME/.android/debug.keystore"
+export/android/debug_keystore_user = "androiddebugkey"
+export/android/debug_keystore_pass = "android"
+export/android/force_system_user = false
+export/android/shutdown_adb_on_exit = true
+EOF
           echo "--- Godot Android settings ---"
-          cat "$HOME/.config/godot/editor_settings-4.tres"
-          echo "--- Debug keystore ---"
+          cat "$HOME/.config/godot/editor_settings-4.5.tres"
+          echo "--- SDK/JDK ---"
+          test -x "$JAVA_HOME/bin/java"
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey
 
       - name: Verify Godot project and export configuration
@@ -100,7 +102,6 @@ jobs:
         run: |
           set -e
           mkdir -p build
-          adb start-server || true
           godot --headless --path . --export-debug "Android" build/BattleRoyaleMobile.apk
           test -s build/BattleRoyaleMobile.apk
           ls -lh build/BattleRoyaleMobile.apk
