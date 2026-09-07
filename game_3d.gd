@@ -16,20 +16,21 @@ var won := false
 var hud: CanvasLayer
 var stats: Label
 var message: Label
+var weapon_label: Label
 
 func _ready() -> void:
     randomize()
     _setup_world()
     _spawn_player()
     _spawn_bots(20)
-    _spawn_pickups(45)
+    _spawn_pickups(55)
     _setup_hud()
 
 func _setup_world() -> void:
     var env := WorldEnvironment.new()
     var environment := Environment.new()
     environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color("#87a0b5")
+    environment.background_color = Color("#6e8799")
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     environment.ambient_light_color = Color("#c9d5df")
     environment.ambient_light_energy = 0.65
@@ -41,7 +42,7 @@ func _setup_world() -> void:
     sun.rotation_degrees = Vector3(-52, -28, 0)
     sun.light_energy = 1.25
     sun.shadow_enabled = true
-    sun.directional_shadow_max_distance = 100.0
+    sun.directional_shadow_max_distance = 120.0
     add_child(sun)
 
     var ground := StaticBody3D.new()
@@ -80,7 +81,7 @@ func _make_building(pos: Vector3) -> void:
     mesh.mesh = box
     mesh.position.y = box.size.y * 0.5
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color("#8b8172")
+    mat.albedo_color = Color("#81786c")
     mat.roughness = 0.86
     mesh.material_override = mat
     body.add_child(mesh)
@@ -138,14 +139,15 @@ func _spawn_bots(count: int) -> void:
 func _spawn_pickups(count: int) -> void:
     for i in count:
         var pos := Vector3(randf_range(-125,125), 0.35, randf_range(-125,125))
-        var kind := "ammo" if i % 3 != 0 else "medkit"
+        var roll := i % 5
+        var kind := "ammo" if roll < 2 else ("medkit" if roll < 4 else "armor")
         var item := MeshInstance3D.new()
         var mesh := BoxMesh.new()
         mesh.size = Vector3(0.6,0.45,0.6)
         item.mesh = mesh
         item.position = pos
         var mat := StandardMaterial3D.new()
-        mat.albedo_color = Color("#d4a94a") if kind == "ammo" else Color("#56b879")
+        mat.albedo_color = Color("#d4a94a") if kind == "ammo" else (Color("#56b879") if kind == "medkit" else Color("#4c9bd6"))
         mat.emission_enabled = true
         mat.emission = mat.albedo_color * 0.35
         item.material_override = mat
@@ -157,13 +159,18 @@ func _setup_hud() -> void:
     add_child(hud)
     var panel := ColorRect.new()
     panel.position = Vector2(18,18)
-    panel.size = Vector2(390,108)
-    panel.color = Color(0.015,0.025,0.04,0.82)
+    panel.size = Vector2(430,122)
+    panel.color = Color(0.015,0.025,0.04,0.84)
     hud.add_child(panel)
     stats = Label.new()
     stats.position = Vector2(32,30)
-    stats.add_theme_font_size_override("font_size",22)
+    stats.add_theme_font_size_override("font_size",20)
     hud.add_child(stats)
+    weapon_label = Label.new()
+    weapon_label.position = Vector2(32,108)
+    weapon_label.add_theme_font_size_override("font_size",16)
+    weapon_label.add_theme_color_override("font_color", Color("#f3bd55"))
+    hud.add_child(weapon_label)
     message = Label.new()
     message.set_anchors_preset(Control.PRESET_CENTER_TOP)
     message.position = Vector2(-360,20)
@@ -174,6 +181,7 @@ func _setup_hud() -> void:
     _add_mobile_button("FIRE", Vector2(1060,570), Vector2(170,105), _mobile_fire)
     _add_mobile_button("RELOAD", Vector2(930,625), Vector2(115,58), _mobile_reload)
     _add_mobile_button("SPRINT", Vector2(45,625), Vector2(120,58), _mobile_sprint)
+    _add_mobile_button("WEAPON", Vector2(785,625), Vector2(125,58), _mobile_weapon)
 
 func _add_mobile_button(text: String, pos: Vector2, size: Vector2, action: Callable) -> void:
     var b := Button.new()
@@ -181,7 +189,7 @@ func _add_mobile_button(text: String, pos: Vector2, size: Vector2, action: Calla
     b.position = pos
     b.size = size
     b.modulate = Color(1,1,1,0.78)
-    b.add_theme_font_size_override("font_size",20)
+    b.add_theme_font_size_override("font_size",18)
     b.pressed.connect(action)
     hud.add_child(b)
 
@@ -192,6 +200,9 @@ func _mobile_fire() -> void:
 
 func _mobile_reload() -> void:
     player.reload()
+
+func _mobile_weapon() -> void:
+    player.switch_weapon()
 
 func _mobile_sprint() -> void:
     player.speed = player.sprint_speed
@@ -208,8 +219,8 @@ func _nearest_bot() -> Node3D:
                 best = bot
     return best
 
-func player_shot(origin: Vector3, direction: Vector3) -> void:
-    bullets.append({"pos":origin,"vel":direction.normalized()*55.0,"damage":25.0,"player":true,"life":1.2})
+func player_shot(origin: Vector3, direction: Vector3, damage: float = 25.0) -> void:
+    bullets.append({"pos":origin,"vel":direction.normalized()*55.0,"damage":damage,"player":true,"life":1.2})
 
 func bot_shot(origin: Vector3, direction: Vector3) -> void:
     bullets.append({"pos":origin,"vel":direction.normalized()*38.0,"damage":8.0,"player":false,"life":1.5})
@@ -267,8 +278,10 @@ func _update_pickups() -> void:
             item.node.queue_free()
             if item.kind == "ammo":
                 player.reserve_ammo += 45
-            else:
+            elif item.kind == "medkit":
                 player.heal(30)
+            else:
+                player.repair_armor(30)
 
 func _update_zone(delta: float) -> void:
     var dist := Vector2(player.global_position.x, player.global_position.z).length()
@@ -290,5 +303,7 @@ func _alive_bots() -> int:
 func _update_hud() -> void:
     if not is_instance_valid(player):
         return
-    stats.text = "HP %d/100   AMMO %d/%d   KILLS %d\nENEMIES %d   ZONE %dm" % [int(player.health), player.ammo, player.reserve_ammo, kills, _alive_bots(), int(zone_radius)]
+    var weapon: Dictionary = player.weapons[player.weapon_index]
+    stats.text = "HP %d/100   ARMOR %d/50\nAMMO %d/%d   KILLS %d   ENEMIES %d\nZONE %dm" % [int(player.health), int(player.armor), player.ammo, player.reserve_ammo, kills, _alive_bots(), int(zone_radius)]
+    weapon_label.text = "%s  •  DMG %d" % [weapon["name"], int(weapon["damage"])]
     message.text = "REALISTIC BATTLE ZONE" if not ended else ("VICTORY" if won else "ELIMINATED")
