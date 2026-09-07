@@ -9,6 +9,10 @@ var selected_weapon := 0
 var owned := [true, true, false, false]
 var mission_progress := [3, 7, 12]
 var claimed := [false, false, false, false, false]
+var selected_mode := "BATTLE ROYALE"
+var pet_equipped := "NOVA DRONE"
+var guild_name := "IRON GUARD"
+var role := "RIFLER"
 var weapons := [
     {"name":"ASSAULT MK-IV", "type":"ASSAULT RIFLE", "damage":25, "rate":"HIGH", "range":"MEDIUM", "cost":0},
     {"name":"VOLT SMG-9", "type":"SMG", "damage":18, "rate":"VERY HIGH", "range":"SHORT", "cost":650},
@@ -52,6 +56,10 @@ func _load_profile() -> void:
         owned = c.get_value("profile", "owned", owned)
         mission_progress = c.get_value("profile", "missions", mission_progress)
         claimed = c.get_value("profile", "claimed", claimed)
+        selected_mode = str(c.get_value("profile", "mode", "BATTLE ROYALE"))
+        pet_equipped = str(c.get_value("profile", "pet", "NOVA DRONE"))
+        guild_name = str(c.get_value("profile", "guild", "IRON GUARD"))
+        role = str(c.get_value("profile", "role", "RIFLER"))
     level = clampi(int(xp / 500) + 1, 1, 100)
 
 func _save_profile() -> void:
@@ -63,6 +71,10 @@ func _save_profile() -> void:
     c.set_value("profile", "owned", owned)
     c.set_value("profile", "missions", mission_progress)
     c.set_value("profile", "claimed", claimed)
+    c.set_value("profile", "mode", selected_mode)
+    c.set_value("profile", "pet", pet_equipped)
+    c.set_value("profile", "guild", guild_name)
+    c.set_value("profile", "role", role)
     c.save(SAVE_PATH)
 
 func _mat(c: Color, metal := 0.0, rough := 0.5, glow := Color.TRANSPARENT) -> StandardMaterial3D:
@@ -187,7 +199,7 @@ func _make_ui() -> void:
     var tabs := HBoxContainer.new()
     tabs.add_theme_constant_override("separation", 6)
     root.add_child(tabs)
-    for tab in ["SHOWROOM","INVENTORY","RANK","MISSIONS","BATTLE PASS"]:
+    for tab in ["SHOWROOM","INVENTORY","RANK","MISSIONS","BATTLE PASS","FEATURES"]:
         var b := Button.new()
         b.text = tab
         b.custom_minimum_size.y = 46
@@ -199,7 +211,7 @@ func _make_ui() -> void:
     main_content.add_theme_constant_override("separation", 8)
     root.add_child(main_content)
     status_label = Label.new()
-    status_label.text = "● LOCAL PROFILE SAVED  |  ARMORY ONLINE"
+    status_label.text = "● LOCAL PROFILE SAVED  |  COMMAND SYSTEM ONLINE"
     status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     status_label.add_theme_color_override("font_color", Color("5df2a3"))
     root.add_child(status_label)
@@ -245,6 +257,7 @@ func _refresh() -> void:
         "RANK": _rank_tab()
         "MISSIONS": _missions_tab()
         "BATTLE PASS": _pass_tab()
+        "FEATURES": _features_tab()
 
 func _showroom_tab() -> void:
     var b := _box("3D ARMORY SHOWROOM")
@@ -299,7 +312,7 @@ func _rank_tab() -> void:
     bar.custom_minimum_size.y = 14
     b.add_child(bar)
     var info := Label.new()
-    info.text = "CAREER XP: %d\nCREDITS: %d\nNEXT CLASS: %s" % [xp,credits,_rank_name(level + 1)]
+    info.text = "CAREER XP: %d\nCREDITS: %d\nROLE: %s\nNEXT CLASS: %s" % [xp,credits,role,_rank_name(level + 1)]
     b.add_child(info)
 
 func _rank_name(n: int) -> String:
@@ -346,6 +359,34 @@ func _claim(i: int) -> void:
     if i == 4: owned[1] = true
     _save_profile()
     status_label.text = "● BATTLE PASS REWARD CLAIMED"
+    _refresh()
+
+func _features_tab() -> void:
+    var b := _box("BATTLE ZONE // MODES & SYSTEMS")
+    var intro := Label.new()
+    intro.text = "EXPANDED COMMAND SYSTEM — ORIGINAL BATTLE ZONE FEATURES"
+    intro.add_theme_color_override("font_color", Color("a8bdd0"))
+    b.add_child(intro)
+    for mode in ["BATTLE ROYALE", "CLASH SQUAD", "TRAINING RANGE", "ZOMBIE HUNT"]:
+        var m := Button.new()
+        m.text = ("✓ " if selected_mode == mode else "") + mode
+        m.custom_minimum_size.y = 42
+        m.pressed.connect(_select_mode.bind(mode))
+        b.add_child(m)
+    var systems := Label.new()
+    systems.text = "\nVEHICLES        ✓ OFF-ROAD SCOUT\nTHROWABLES      ✓ FRAG / SMOKE / EMP\nREVIVAL         ✓ REVIVE BEACON\nAIR DROPS       ✓ SUPPLY POD EVENTS\nCHARACTER       ✓ SKILL LOADOUTS\nPET COMPANION   ✓ %s\nGUILD           ✓ %s\nROLE            ✓ %s\nCRAFT ZONE      ✓ FIELD WORKSHOP\nSOCIAL          ✓ PROFILE / TITLES / STATUS" % [pet_equipped,guild_name,role]
+    systems.add_theme_font_size_override("font_size", 16)
+    systems.add_theme_color_override("font_color", Color("d9e8f4"))
+    b.add_child(systems)
+    var deploy := Button.new()
+    deploy.text = "DEPLOY %s   ▶" % selected_mode
+    deploy.custom_minimum_size.y = 55
+    deploy.pressed.connect(_start_battle)
+    b.add_child(deploy)
+
+func _select_mode(mode: String) -> void:
+    selected_mode = mode
+    _save_profile()
     _refresh()
 
 func _start_battle() -> void:
