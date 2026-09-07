@@ -5,7 +5,7 @@
 [sub_resource type="Environment" id="Environment_boot"]
 background_mode = 1
 background_color = Color(0.008, 0.016, 0.031, 1)
-ambient_light_source = 3
+ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.68, 0.8, 1)
 ambient_light_energy = 0.75
 
