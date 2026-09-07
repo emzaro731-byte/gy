@@ -10,6 +10,7 @@ var revive_tokens := 1
 var grenade_cooldown := 0.0
 var ability_cooldown := 0.0
 var airdrop_timer := 18.0
+var revive_pending := false
 var airdrops: Array[Node3D] = []
 var vehicle_pads: Array[Node3D] = []
 var saved_mode := "BATTLE ROYALE"
@@ -47,17 +48,23 @@ func _process(delta: float) -> void:
     for pad in vehicle_pads:
         if is_instance_valid(pad) and player.global_position.distance_to(pad.global_position) < 3.0:
             player.speed = player.sprint_speed + 3.0
-        elif is_instance_valid(player):
-            player.speed = min(player.speed, 5.8)
-    if not player.alive and revive_tokens > 0 and not game.ended:
+        elif is_instance_valid(player) and player.speed > player.sprint_speed:
+            player.speed = player.sprint_speed
+    if not player.alive and revive_tokens > 0 and not revive_pending:
+        revive_pending = true
         revive_tokens -= 1
+        game.ended = false
+        game.won = false
         await get_tree().create_timer(4.0).timeout
         if is_instance_valid(player):
             player.alive = true
             player.health = 45.0
             player.armor = 20.0
             player.global_position = Vector3.ZERO
+            player.velocity = Vector3.ZERO
+            game.ended = false
             feature_label.text = "REVIVE BEACON ACTIVATED  •  GET BACK IN"
+        revive_pending = false
     if is_instance_valid(feature_label):
         feature_label.text = "MODE %s  •  FRAG %d  EMP %d  REVIVE %d" % [saved_mode, grenades, emp_charges, revive_tokens]
 
