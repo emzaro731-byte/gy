@@ -1,153 +1,82 @@
 extends Node3D
 
-const PROFILE_PATH := "user://battle_zone_profile.cfg"
+const SAVE_PATH := "user://battle_zone_profile.cfg"
 
-var profile := {
-    "xp": 0,
-    "level": 1,
-    "credits": 1200,
-    "selected_weapon": 0,
-    "owned_weapons": [true, true, false, false],
-    "mission_progress": [3, 7, 12],
-    "claimed_rewards": [false, false, false, false, false]
-}
-
+var xp := 0
+var level := 1
+var credits := 1200
+var selected_weapon := 0
+var owned := [true, true, false, false]
+var mission_progress := [3, 7, 12]
+var claimed := [false, false, false, false, false]
 var weapons := [
     {"name":"ASSAULT MK-IV", "type":"ASSAULT RIFLE", "damage":25, "rate":"HIGH", "range":"MEDIUM", "cost":0},
     {"name":"VOLT SMG-9", "type":"SMG", "damage":18, "rate":"VERY HIGH", "range":"SHORT", "cost":650},
     {"name":"RAVEN DMR", "type":"MARKSMAN", "damage":42, "rate":"MEDIUM", "range":"LONG", "cost":900},
     {"name":"HAMMER-12", "type":"SHOTGUN", "damage":68, "rate":"LOW", "range":"CLOSE", "cost":1200}
 ]
-
-var missions := [
-    {"name":"FIELD TEST", "desc":"Complete 5 eliminations", "goal":5, "reward":300},
-    {"name":"SURVIVOR", "desc":"Survive for 10 minutes", "goal":10, "reward":500},
-    {"name":"SCAVENGER", "desc":"Collect 20 supply items", "goal":20, "reward":700}
-]
-
-var battle_pass := [
-    {"level":1, "reward":"100 CREDITS"},
-    {"level":2, "reward":"TACTICAL SKIN"},
-    {"level":3, "reward":"250 CREDITS"},
-    {"level":4, "reward":"XP BOOST"},
-    {"level":5, "reward":"VOLT SMG-9"}
-]
+var mission_names := ["FIELD TEST", "SURVIVOR", "SCAVENGER"]
+var mission_desc := ["Complete 5 eliminations", "Survive for 10 minutes", "Collect 20 supply items"]
+var mission_goals := [5, 10, 20]
+var mission_rewards := [300, 500, 700]
+var pass_rewards := ["100 CREDITS", "TACTICAL SKIN", "250 CREDITS", "XP BOOST", "VOLT SMG-9"]
 
 var character: Node3D
 var weapon_display: Node3D
-var camera: Camera3D
-var status_label: Label
 var main_content: VBoxContainer
-var selected_tab := "SHOWROOM"
+var status_label: Label
+var profile_label: Label
+var currency_label: Label
 var pulse := 0.0
+var current_tab := "SHOWROOM"
 
 func _ready() -> void:
     _load_profile()
-    _build_3d_showroom()
-    _build_interface()
-    _refresh_content()
+    _make_showroom()
+    _make_ui()
+    _refresh()
 
 func _process(delta: float) -> void:
     pulse += delta
-    if character:
-        character.rotation.y += delta * 0.22
-    if weapon_display:
-        weapon_display.rotation.y += delta * 0.55
-    if status_label:
-        status_label.modulate.a = 0.82 + sin(pulse * 2.0) * 0.16
+    if character: character.rotation.y += delta * 0.18
+    if weapon_display: weapon_display.rotation.y += delta * 0.55
+    if status_label: status_label.modulate.a = 0.82 + sin(pulse * 2.0) * 0.16
 
 func _load_profile() -> void:
-    var cfg := ConfigFile.new()
-    if cfg.load(PROFILE_PATH) == OK:
-        profile.xp = int(cfg.get_value("profile", "xp", 0))
-        profile.level = int(cfg.get_value("profile", "level", 1))
-        profile.credits = int(cfg.get_value("profile", "credits", 1200))
-        profile.selected_weapon = int(cfg.get_value("profile", "selected_weapon", 0))
-        profile.owned_weapons = cfg.get_value("profile", "owned_weapons", [true, true, false, false])
-        profile.mission_progress = cfg.get_value("profile", "mission_progress", [3, 7, 12])
-        profile.claimed_rewards = cfg.get_value("profile", "claimed_rewards", [false, false, false, false, false])
-    _recalculate_level()
+    var c := ConfigFile.new()
+    if c.load(SAVE_PATH) == OK:
+        xp = int(c.get_value("profile", "xp", 0))
+        level = int(c.get_value("profile", "level", 1))
+        credits = int(c.get_value("profile", "credits", 1200))
+        selected_weapon = int(c.get_value("profile", "selected_weapon", 0))
+        owned = c.get_value("profile", "owned", owned)
+        mission_progress = c.get_value("profile", "missions", mission_progress)
+        claimed = c.get_value("profile", "claimed", claimed)
+    level = clampi(int(xp / 500) + 1, 1, 100)
 
 func _save_profile() -> void:
-    var cfg := ConfigFile.new()
-    cfg.set_value("profile", "xp", profile.xp)
-    cfg.set_value("profile", "level", profile.level)
-    cfg.set_value("profile", "credits", profile.credits)
-    cfg.set_value("profile", "selected_weapon", profile.selected_weapon)
-    cfg.set_value("profile", "owned_weapons", profile.owned_weapons)
-    cfg.set_value("profile", "mission_progress", profile.mission_progress)
-    cfg.set_value("profile", "claimed_rewards", profile.claimed_rewards)
-    cfg.save(PROFILE_PATH)
+    var c := ConfigFile.new()
+    c.set_value("profile", "xp", xp)
+    c.set_value("profile", "level", level)
+    c.set_value("profile", "credits", credits)
+    c.set_value("profile", "selected_weapon", selected_weapon)
+    c.set_value("profile", "owned", owned)
+    c.set_value("profile", "missions", mission_progress)
+    c.set_value("profile", "claimed", claimed)
+    c.save(SAVE_PATH)
 
-func _recalculate_level() -> void:
-    profile.level = clampi(int(profile.xp / 500) + 1, 1, 100)
-
-func _build_3d_showroom() -> void:
-    var env_node := WorldEnvironment.new()
-    var env := Environment.new()
-    env.background_mode = Environment.BG_COLOR
-    env.background_color = Color("#050b14")
-    env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    env.ambient_light_color = Color("#9db8d2")
-    env.ambient_light_energy = 0.72
-    env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-    env_node.environment = env
-    add_child(env_node)
-
-    var key := DirectionalLight3D.new()
-    key.rotation_degrees = Vector3(-48, -32, 0)
-    key.light_energy = 1.5
-    key.shadow_enabled = true
-    add_child(key)
-
-    var rim := OmniLight3D.new()
-    rim.position = Vector3(3, 4, 2)
-    rim.light_energy = 5.0
-    rim.omni_range = 12.0
-    add_child(rim)
-
-    var floor := MeshInstance3D.new()
-    var floor_mesh := CylinderMesh.new()
-    floor_mesh.top_radius = 6.0
-    floor_mesh.bottom_radius = 6.0
-    floor_mesh.height = 0.35
-    floor.mesh = floor_mesh
-    floor.position.y = -0.18
-    var floor_mat := StandardMaterial3D.new()
-    floor_mat.albedo_color = Color("#101d2b")
-    floor_mat.metallic = 0.55
-    floor_mat.roughness = 0.3
-    floor.material_override = floor_mat
-    add_child(floor)
-
-    character = Node3D.new()
-    character.position = Vector3(-0.5, 0, 0)
-    add_child(character)
-    _build_character()
-
-    weapon_display = Node3D.new()
-    weapon_display.position = Vector3(2.0, 1.0, 0)
-    add_child(weapon_display)
-    _build_weapon_display()
-
-    camera = Camera3D.new()
-    camera.position = Vector3(0, 2.2, 8.8)
-    camera.look_at_from_position(camera.position, Vector3(0.6, 1.0, 0), Vector3.UP)
-    camera.current = true
-    add_child(camera)
-
-func _mat(color: Color, metal := 0.0, rough := 0.55, emission := Color.TRANSPARENT) -> StandardMaterial3D:
+func _mat(c: Color, metal := 0.0, rough := 0.5, glow := Color.TRANSPARENT) -> StandardMaterial3D:
     var m := StandardMaterial3D.new()
-    m.albedo_color = color
+    m.albedo_color = c
     m.metallic = metal
     m.roughness = rough
-    if emission.a > 0.0:
+    if glow.a > 0.0:
         m.emission_enabled = true
-        m.emission = emission
+        m.emission = glow
         m.emission_energy_multiplier = 2.0
     return m
 
-func _part(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
+func _part(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> void:
     var n := MeshInstance3D.new()
     var mesh := BoxMesh.new()
     mesh.size = size
@@ -155,55 +84,79 @@ func _part(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshIn
     n.position = pos
     n.material_override = mat
     parent.add_child(n)
-    return n
 
-func _build_character() -> void:
-    var armor := _mat(Color("#3b4b5c"), 0.8, 0.25)
-    var dark := _mat(Color("#0a1119"), 0.9, 0.2)
-    var trim := _mat(Color("#c79b42"), 0.65, 0.25, Color("#6a4a14"))
-    _part(character, Vector3(1.0,1.25,0.62), Vector3(0,1.2,0), armor)
-    _part(character, Vector3(0.7,0.4,0.68), Vector3(0,1.48,-0.05), dark)
-    _part(character, Vector3(0.72,0.58,0.58), Vector3(0,2.08,0), dark)
-    _part(character, Vector3(0.5,0.08,0.08), Vector3(0,2.08,-0.32), trim)
-    _part(character, Vector3(0.34,1.0,0.42), Vector3(-0.34,0.25,0), armor)
-    _part(character, Vector3(0.34,1.0,0.42), Vector3(0.34,0.25,0), armor)
-    _part(character, Vector3(0.38,0.85,0.44), Vector3(-0.62,0.85,0), armor)
-    _part(character, Vector3(0.38,0.85,0.44), Vector3(0.62,0.85,0), armor)
-    _part(character, Vector3(0.42,0.9,0.48), Vector3(-0.28,-0.25,0), dark)
-    _part(character, Vector3(0.42,0.9,0.48), Vector3(0.28,-0.25,0), dark)
-    _part(character, Vector3(0.58,0.16,0.8), Vector3(-0.28,-0.7,-0.12), trim)
-    _part(character, Vector3(0.58,0.16,0.8), Vector3(0.28,-0.7,-0.12), trim)
+func _make_showroom() -> void:
+    var env_node := WorldEnvironment.new()
+    var env := Environment.new()
+    env.background_mode = Environment.BG_COLOR
+    env.background_color = Color("#050b14")
+    env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    env.ambient_light_color = Color("#9db8d2")
+    env.ambient_light_energy = 0.8
+    env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+    env_node.environment = env
+    add_child(env_node)
+    var sun := DirectionalLight3D.new()
+    sun.rotation_degrees = Vector3(-50, -30, 0)
+    sun.light_energy = 1.5
+    sun.shadow_enabled = true
+    add_child(sun)
+    var floor := MeshInstance3D.new()
+    var fm := CylinderMesh.new()
+    fm.top_radius = 6.5
+    fm.bottom_radius = 6.5
+    fm.height = 0.3
+    floor.mesh = fm
+    floor.position.y = -0.15
+    floor.material_override = _mat(Color("#101c2a"), 0.65, 0.3)
+    add_child(floor)
+    character = Node3D.new()
+    character.position = Vector3(-1.0, 0, 0)
+    add_child(character)
+    var armor := _mat(Color("#405366"), 0.85, 0.22)
+    var dark := _mat(Color("#090f16"), 0.95, 0.18)
+    var gold := _mat(Color("#c99b42"), 0.65, 0.25, Color("#5c3e10"))
+    _part(character, Vector3(1.05,1.3,0.62), Vector3(0,1.25,0), armor)
+    _part(character, Vector3(0.72,0.6,0.58), Vector3(0,2.15,0), dark)
+    _part(character, Vector3(0.48,0.08,0.06), Vector3(0,2.16,-0.32), gold)
+    _part(character, Vector3(0.38,1.0,0.42), Vector3(-0.35,0.2,0), dark)
+    _part(character, Vector3(0.38,1.0,0.42), Vector3(0.35,0.2,0), dark)
+    _part(character, Vector3(0.4,0.9,0.45), Vector3(-0.65,0.9,0), armor)
+    _part(character, Vector3(0.4,0.9,0.45), Vector3(0.65,0.9,0), armor)
+    _part(character, Vector3(0.45,0.9,0.45), Vector3(-0.3,-0.25,0), dark)
+    _part(character, Vector3(0.45,0.9,0.45), Vector3(0.3,-0.25,0), dark)
+    _part(character, Vector3(0.6,0.15,0.75), Vector3(-0.3,-0.72,-0.1), gold)
+    _part(character, Vector3(0.6,0.15,0.75), Vector3(0.3,-0.72,-0.1), gold)
+    weapon_display = Node3D.new()
+    weapon_display.position = Vector3(2.0, 1.3, 0)
+    add_child(weapon_display)
+    _part(weapon_display, Vector3(2.2,0.2,0.25), Vector3(0,0,0), dark)
+    _part(weapon_display, Vector3(0.75,0.3,0.3), Vector3(-0.65,-0.16,0), armor)
+    _part(weapon_display, Vector3(0.34,0.72,0.28), Vector3(-0.25,-0.42,0), dark)
+    _part(weapon_display, Vector3(0.32,0.18,0.32), Vector3(0.65,0,0), gold)
+    var camera := Camera3D.new()
+    camera.position = Vector3(0, 2.5, 9)
+    camera.look_at_from_position(camera.position, Vector3(0.4,1.0,0), Vector3.UP)
+    camera.current = true
+    add_child(camera)
 
-func _build_weapon_display() -> void:
-    var dark := _mat(Color("#171e25"), 0.92, 0.2)
-    var metal := _mat(Color("#66717a"), 0.85, 0.22)
-    var accent := _mat(Color("#c79b42"), 0.7, 0.25, Color("#5b3f12"))
-    _part(weapon_display, Vector3(2.1,0.22,0.25), Vector3(0,0,0), dark)
-    _part(weapon_display, Vector3(0.75,0.32,0.3), Vector3(-0.65,-0.15,0), metal)
-    _part(weapon_display, Vector3(0.34,0.72,0.28), Vector3(-0.25,-0.43,0), dark)
-    _part(weapon_display, Vector3(0.32,0.18,0.32), Vector3(0.62,0,0), accent)
-    _part(weapon_display, Vector3(0.65,0.12,0.16), Vector3(0.55,0.22,0), metal)
-
-func _build_interface() -> void:
+func _make_ui() -> void:
     var layer := CanvasLayer.new()
     add_child(layer)
-    var bg := ColorRect.new()
-    bg.color = Color(0.015,0.03,0.055,0.76)
-    bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    layer.add_child(bg)
-
+    var shade := ColorRect.new()
+    shade.color = Color(0.01,0.025,0.05,0.78)
+    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    layer.add_child(shade)
     var margin := MarginContainer.new()
     margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     margin.add_theme_constant_override("margin_left", 28)
     margin.add_theme_constant_override("margin_right", 28)
-    margin.add_theme_constant_override("margin_top", 22)
-    margin.add_theme_constant_override("margin_bottom", 22)
+    margin.add_theme_constant_override("margin_top", 20)
+    margin.add_theme_constant_override("margin_bottom", 20)
     layer.add_child(margin)
-
     var root := VBoxContainer.new()
-    root.add_theme_constant_override("separation", 12)
+    root.add_theme_constant_override("separation", 10)
     margin.add_child(root)
-
     var header := HBoxContainer.new()
     header.custom_minimum_size.y = 62
     root.add_child(header)
@@ -216,71 +169,54 @@ func _build_interface() -> void:
     title.add_theme_color_override("font_color", Color("eaf4ff"))
     brand.add_child(title)
     var sub := Label.new()
-    sub.text = "TACTICAL COMMAND // OFFLINE"
+    sub.text = "COMMAND CENTER // OFFLINE"
     sub.add_theme_font_size_override("font_size", 11)
     sub.add_theme_color_override("font_color", Color("5dc8ff"))
     brand.add_child(sub)
-
-    var profile_box := VBoxContainer.new()
-    profile_box.custom_minimum_size.x = 330
-    header.add_child(profile_box)
-    var profile := Label.new()
-    profile.text = "OPERATIVE 01   •   RANK %02d" % profile.level
-    profile.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-    profile.add_theme_font_size_override("font_size", 17)
-    profile_box.add_child(profile)
-    var xp := Label.new()
-    xp.text = "%d XP   •   %d CREDITS" % [profile.xp, profile.credits]
-    xp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-    xp.add_theme_color_override("font_color", Color("f3bd55"))
-    profile_box.add_child(xp)
-
+    var pbox := VBoxContainer.new()
+    pbox.custom_minimum_size.x = 350
+    header.add_child(pbox)
+    profile_label = Label.new()
+    profile_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    profile_label.add_theme_font_size_override("font_size", 17)
+    pbox.add_child(profile_label)
+    currency_label = Label.new()
+    currency_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    currency_label.add_theme_color_override("font_color", Color("f3bd55"))
+    pbox.add_child(currency_label)
     var tabs := HBoxContainer.new()
-    tabs.add_theme_constant_override("separation", 8)
+    tabs.add_theme_constant_override("separation", 6)
     root.add_child(tabs)
-    for tab in ["SHOWROOM", "INVENTORY", "RANK", "MISSIONS", "BATTLE PASS"]:
+    for tab in ["SHOWROOM","INVENTORY","RANK","MISSIONS","BATTLE PASS"]:
         var b := Button.new()
         b.text = tab
-        b.custom_minimum_size = Vector2(0, 46)
+        b.custom_minimum_size.y = 46
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.pressed.connect(_select_tab.bind(tab))
+        b.pressed.connect(_select.bind(tab))
         tabs.add_child(b)
-
     main_content = VBoxContainer.new()
     main_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    main_content.add_theme_constant_override("separation", 10)
+    main_content.add_theme_constant_override("separation", 8)
     root.add_child(main_content)
-
     status_label = Label.new()
     status_label.text = "● LOCAL PROFILE SAVED  |  ARMORY ONLINE"
     status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    status_label.add_theme_font_size_override("font_size", 11)
     status_label.add_theme_color_override("font_color", Color("5df2a3"))
     root.add_child(status_label)
 
-func _clear_content() -> void:
-    for child in main_content.get_children():
-        child.queue_free()
+func _select(tab: String) -> void:
+    current_tab = tab
+    _refresh()
 
-func _select_tab(tab: String) -> void:
-    selected_tab = tab
-    _refresh_content()
+func _clear() -> void:
+    for c in main_content.get_children(): c.queue_free()
 
-func _refresh_content() -> void:
-    _clear_content()
-    match selected_tab:
-        "SHOWROOM": _show_showroom()
-        "INVENTORY": _show_inventory()
-        "RANK": _show_rank()
-        "MISSIONS": _show_missions()
-        "BATTLE PASS": _show_battle_pass()
-
-func _panel(title_text: String) -> VBoxContainer:
+func _box(title_text: String) -> VBoxContainer:
     var panel := PanelContainer.new()
     panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
     var style := StyleBoxFlat.new()
-    style.bg_color = Color("0b1726")
-    style.border_color = Color("23425c")
+    style.bg_color = Color("0a1726")
+    style.border_color = Color("24435e")
     style.set_border_width_all(1)
     style.set_corner_radius_all(10)
     style.content_margin_left = 18
@@ -292,132 +228,125 @@ func _panel(title_text: String) -> VBoxContainer:
     var box := VBoxContainer.new()
     box.add_theme_constant_override("separation", 8)
     panel.add_child(box)
-    var heading := Label.new()
-    heading.text = title_text
-    heading.add_theme_font_size_override("font_size", 18)
-    heading.add_theme_color_override("font_color", Color("5dc8ff"))
-    box.add_child(heading)
+    var h := Label.new()
+    h.text = title_text
+    h.add_theme_font_size_override("font_size", 18)
+    h.add_theme_color_override("font_color", Color("5dc8ff"))
+    box.add_child(h)
     return box
 
-func _show_showroom() -> void:
-    var box := _panel("3D ARMORY SHOWROOM")
-    var info := Label.new()
-    info.text = "ASSAULT MK-IV // OPERATIVE MK-IV\nLIVE 3D DISPLAY  •  ROTATING WEAPON  •  EQUIPPED LOADOUT"
-    info.add_theme_font_size_override("font_size", 20)
-    info.add_theme_color_override("font_color", Color("e6f1fb"))
-    box.add_child(info)
-    var stats := Label.new()
-    var w: Dictionary = weapons[profile.selected_weapon]
-    stats.text = "WEAPON: %s\nTYPE: %s   DAMAGE: %d   FIRE RATE: %s   RANGE: %s" % [w.name, w.type, w.damage, w.rate, w.range]
-    stats.add_theme_color_override("font_color", Color("a8bdd0"))
-    box.add_child(stats)
-    var deploy := Button.new()
-    deploy.text = "DEPLOY WITH %s   ▶" % w.name
-    deploy.custom_minimum_size.y = 58
-    deploy.add_theme_font_size_override("font_size", 20)
-    deploy.pressed.connect(_start_battle)
-    box.add_child(deploy)
+func _refresh() -> void:
+    _clear()
+    profile_label.text = "OPERATIVE 01   •   RANK %02d" % level
+    currency_label.text = "%d XP   •   %d CREDITS" % [xp, credits]
+    match current_tab:
+        "SHOWROOM": _showroom_tab()
+        "INVENTORY": _inventory_tab()
+        "RANK": _rank_tab()
+        "MISSIONS": _missions_tab()
+        "BATTLE PASS": _pass_tab()
 
-func _show_inventory() -> void:
-    var box := _panel("ARMORY / INVENTORY")
-    var hint := Label.new()
-    hint.text = "OWNED WEAPONS • EQUIP A LOADOUT FOR YOUR NEXT DROP"
-    hint.add_theme_color_override("font_color", Color("9ab1c4"))
-    box.add_child(hint)
+func _showroom_tab() -> void:
+    var b := _box("3D ARMORY SHOWROOM")
+    var w: Dictionary = weapons[selected_weapon]
+    var l := Label.new()
+    l.text = "OPERATIVE MK-IV\n\nEQUIPPED: %s\n%s  •  DAMAGE %d  •  RATE %s  •  RANGE %s" % [w.name,w.type,w.damage,w.rate,w.range]
+    l.add_theme_font_size_override("font_size", 20)
+    b.add_child(l)
+    var play := Button.new()
+    play.text = "DEPLOY WITH %s   ▶" % w.name
+    play.custom_minimum_size.y = 60
+    play.add_theme_font_size_override("font_size", 21)
+    play.pressed.connect(_start_battle)
+    b.add_child(play)
+
+func _inventory_tab() -> void:
+    var b := _box("ARMORY / INVENTORY")
+    var h := Label.new()
+    h.text = "OWNED LOADOUTS • EQUIP OR PURCHASE WEAPONS"
+    b.add_child(h)
     for i in weapons.size():
         var w: Dictionary = weapons[i]
-        var b := Button.new()
-        var owned: bool = profile.owned_weapons[i]
-        b.text = ("✓ " if i == profile.selected_weapon else "  ") + w.name + "   |   " + w.type + ("   [OWNED]" if owned else "   [" + str(w.cost) + " CREDITS]")
-        b.custom_minimum_size.y = 48
-        b.pressed.connect(_equip_weapon.bind(i))
-        box.add_child(b)
+        var button := Button.new()
+        var state := "EQUIPPED" if i == selected_weapon else ("OWNED" if owned[i] else str(w.cost) + " CREDITS")
+        button.text = w.name + "   |   " + w.type + "   |   " + state
+        button.custom_minimum_size.y = 48
+        button.pressed.connect(_equip.bind(i))
+        b.add_child(button)
 
-func _equip_weapon(index: int) -> void:
-    if not profile.owned_weapons[index]:
-        var cost: int = weapons[index].cost
-        if profile.credits < cost:
+func _equip(i: int) -> void:
+    if not owned[i]:
+        if credits < int(weapons[i].cost):
             status_label.text = "● NOT ENOUGH CREDITS"
             return
-        profile.credits -= cost
-        profile.owned_weapons[index] = true
-    profile.selected_weapon = index
+        credits -= int(weapons[i].cost)
+        owned[i] = true
+    selected_weapon = i
     _save_profile()
-    _refresh_content()
-    status_label.text = "● LOADOUT UPDATED"
+    status_label.text = "● LOADOUT EQUIPPED"
+    _refresh()
 
-func _show_rank() -> void:
-    var box := _panel("RANK / OPERATIVE PROGRESSION")
-    var level_xp := profile.xp % 500
-    var rank := Label.new()
-    rank.text = "RANK %02d  •  %s\n%d / 500 XP TO NEXT RANK" % [profile.level, _rank_name(profile.level), level_xp]
-    rank.add_theme_font_size_override("font_size", 25)
-    rank.add_theme_color_override("font_color", Color("f3bd55"))
-    box.add_child(rank)
+func _rank_tab() -> void:
+    var b := _box("RANK / OPERATIVE PROGRESSION")
+    var l := Label.new()
+    l.text = "RANK %02d  •  %s\n%d / 500 XP TO NEXT RANK" % [level,_rank_name(level),xp % 500]
+    l.add_theme_font_size_override("font_size", 25)
+    l.add_theme_color_override("font_color", Color("f3bd55"))
+    b.add_child(l)
     var bar := ProgressBar.new()
-    bar.value = level_xp / 5.0
+    bar.value = float(xp % 500) / 5.0
     bar.show_percentage = false
     bar.custom_minimum_size.y = 14
-    box.add_child(bar)
-    var rewards := Label.new()
-    rewards.text = "NEXT REWARD: %s\nCAREER XP: %d\nCREDITS: %d" % [_rank_name(profile.level + 1), profile.xp, profile.credits]
-    rewards.add_theme_color_override("font_color", Color("a8bdd0"))
-    box.add_child(rewards)
+    b.add_child(bar)
+    var info := Label.new()
+    info.text = "CAREER XP: %d\nCREDITS: %d\nNEXT CLASS: %s" % [xp,credits,_rank_name(level + 1)]
+    b.add_child(info)
 
-func _rank_name(level: int) -> String:
-    if level >= 50: return "VANGUARD"
-    if level >= 30: return "ELITE"
-    if level >= 15: return "OPERATIVE"
-    if level >= 5: return "SPECIALIST"
+func _rank_name(n: int) -> String:
+    if n >= 50: return "VANGUARD"
+    if n >= 30: return "ELITE"
+    if n >= 15: return "OPERATIVE"
+    if n >= 5: return "SPECIALIST"
     return "RECRUIT"
 
-func _show_missions() -> void:
-    var box := _panel("DAILY / CAREER MISSIONS")
-    for i in missions.size():
-        var m: Dictionary = missions[i]
-        var progress: int = min(int(profile.mission_progress[i]), int(m.goal))
-        var row := VBoxContainer.new()
-        var label := Label.new()
-        label.text = "%s\n%s   •   %d/%d   •   +%d XP" % [m.name, m.desc, progress, m.goal, m.reward]
-        label.add_theme_color_override("font_color", Color("e5f0fa"))
-        row.add_child(label)
+func _missions_tab() -> void:
+    var b := _box("MISSIONS / OBJECTIVES")
+    for i in 3:
+        var p := min(mission_progress[i],mission_goals[i])
+        var l := Label.new()
+        l.text = "%s\n%s   •   %d/%d   •   +%d XP" % [mission_names[i],mission_desc[i],p,mission_goals[i],mission_rewards[i]]
+        b.add_child(l)
         var bar := ProgressBar.new()
-        bar.value = float(progress) / float(m.goal) * 100.0
+        bar.value = float(p) / float(mission_goals[i]) * 100.0
         bar.show_percentage = false
         bar.custom_minimum_size.y = 8
-        row.add_child(bar)
-        box.add_child(row)
+        b.add_child(bar)
 
-func _show_battle_pass() -> void:
-    var box := _panel("BATTLE PASS // SEASON 01")
-    var intro := Label.new()
-    intro.text = "OFFLINE SEASON TRACK   •   PROGRESS WITH XP\nCURRENT TIER: %02d / %02d" % [min(profile.level, 5), 5]
-    intro.add_theme_color_override("font_color", Color("a8bdd0"))
-    box.add_child(intro)
-    for i in battle_pass.size():
-        var reward: Dictionary = battle_pass[i]
-        var unlocked: bool = profile.level >= int(reward.level)
-        var claimed: bool = profile.claimed_rewards[i]
-        var b := Button.new()
-        b.text = ("✓ " if claimed else ("🔓 " if unlocked else "🔒 ")) + "TIER %02d   —   %s" % [reward.level, reward.reward]
-        b.custom_minimum_size.y = 45
-        b.pressed.connect(_claim_pass_reward.bind(i))
-        box.add_child(b)
+func _pass_tab() -> void:
+    var b := _box("BATTLE PASS / SEASON 01")
+    var h := Label.new()
+    h.text = "FREE OFFLINE SEASON TRACK\nCURRENT TIER %02d / 05" % min(level,5)
+    b.add_child(h)
+    for i in 5:
+        var button := Button.new()
+        var unlock := level >= i + 1
+        var mark := "✓" if claimed[i] else ("🔓" if unlock else "🔒")
+        button.text = "%s  TIER %02d  —  %s" % [mark,i+1,pass_rewards[i]]
+        button.custom_minimum_size.y = 44
+        button.pressed.connect(_claim.bind(i))
+        b.add_child(button)
 
-func _claim_pass_reward(index: int) -> void:
-    if profile.claimed_rewards[index]:
-        return
-    var reward_level: int = battle_pass[index].level
-    if profile.level < reward_level:
+func _claim(i: int) -> void:
+    if claimed[i]: return
+    if level < i + 1:
         status_label.text = "● TIER LOCKED — EARN MORE XP"
         return
-    profile.claimed_rewards[index] = true
-    profile.credits += 100 + index * 50
-    if index == 4:
-        profile.owned_weapons[1] = true
+    claimed[i] = true
+    credits += 100 + i * 50
+    if i == 4: owned[1] = true
     _save_profile()
-    _refresh_content()
     status_label.text = "● BATTLE PASS REWARD CLAIMED"
+    _refresh()
 
 func _start_battle() -> void:
     _save_profile()
