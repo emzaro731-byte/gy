@@ -1,57 +1,6 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://lobby_3d.gd" id="1_lobby"]
 
-[sub_resource type="Environment" id="Environment_boot"]
-background_mode = 1
-background_color = Color(0.008, 0.016, 0.031, 1)
-ambient_light_source = 2
-ambient_light_color = Color(0.55, 0.68, 0.8, 1)
-ambient_light_energy = 0.75
-
-[sub_resource type="BoxMesh" id="BoxMesh_floor"]
-size = Vector3(14, 0.25, 14)
-
-[sub_resource type="StandardMaterial3D" id="FloorMaterial"]
-albedo_color = Color(0.035, 0.075, 0.11, 1)
-metallic = 0.45
-roughness = 0.32
-
-[sub_resource type="BoxMesh" id="BoxMesh_marker"]
-size = Vector3(1.8, 2.4, 0.8)
-
 [node name="BattleZoneCommandCenter" type="Node3D"]
 script = ExtResource("1_lobby")
-
-[node name="BootEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource("Environment_boot")
-
-[node name="BootLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-45, -25, 0)
-light_energy = 1.2
-shadow_enabled = true
-
-[node name="BootFloor" type="MeshInstance3D" parent="."]
-position = Vector3(0, -0.125, 0)
-mesh = SubResource("BoxMesh_floor")
-material_override = SubResource("FloorMaterial")
-
-[node name="BootMarker" type="MeshInstance3D" parent="."]
-position = Vector3(-1, 1.2, 0)
-mesh = SubResource("BoxMesh_marker")
-material_override = SubResource("FloorMaterial")
-
-[node name="BootCamera" type="Camera3D" parent="."]
-position = Vector3(0, 2.5, 9)
-current = true
-
-[node name="BootUI" type="CanvasLayer" parent="."]
-
-[node name="BootLabel" type="Label" parent="BootUI"]
-offset_left = 28.0
-offset_top = 22.0
-offset_right = 650.0
-offset_bottom = 64.0
-theme_override_colors/font_color = Color(0.36, 0.78, 1, 1)
-theme_override_font_sizes/font_size = 18
-text = "BATTLE ZONE  •  COMMAND CENTER ONLINE"
