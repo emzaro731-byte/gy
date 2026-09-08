@@ -35,6 +35,9 @@ var pulse := 0.0
 var current_tab := "SHOWROOM"
 
 func _ready() -> void:
+    call_deferred("_initialize")
+
+func _initialize() -> void:
     _load_profile()
     _make_showroom()
     _make_ui()
@@ -148,9 +151,9 @@ func _make_showroom() -> void:
     _part(weapon_display, Vector3(0.32,0.18,0.32), Vector3(0.65,0,0), gold)
     var camera := Camera3D.new()
     camera.position = Vector3(0, 2.5, 9)
-    camera.look_at_from_position(camera.position, Vector3(0.4,1.0,0), Vector3.UP)
-    camera.current = true
     add_child(camera)
+    camera.look_at(Vector3(0.4, 1.0, 0), Vector3.UP)
+    camera.current = true
 
 func _make_ui() -> void:
     var layer := CanvasLayer.new()
@@ -231,10 +234,7 @@ func _box(title_text: String) -> VBoxContainer:
     style.border_color = Color("24435e")
     style.set_border_width_all(1)
     style.set_corner_radius_all(10)
-    style.content_margin_left = 18
-    style.content_margin_right = 18
-    style.content_margin_top = 14
-    style.content_margin_bottom = 14
+    style.set_content_margin_all(14)
     panel.add_theme_stylebox_override("panel", style)
     main_content.add_child(panel)
     var box := VBoxContainer.new()
@@ -263,11 +263,11 @@ func _showroom_tab() -> void:
     var b := _box("3D ARMORY SHOWROOM")
     var w: Dictionary = weapons[selected_weapon]
     var l := Label.new()
-    l.text = "OPERATIVE MK-IV\n\nEQUIPPED: %s\n%s  •  DAMAGE %d  •  RATE %s  •  RANGE %s" % [w.name,w.type,w.damage,w.rate,w.range]
+    l.text = "OPERATIVE MK-IV\n\nEQUIPPED: %s\n%s  •  DAMAGE %d  •  RATE %s  •  RANGE %s" % [w["name"],w["type"],w["damage"],w["rate"],w["range"]]
     l.add_theme_font_size_override("font_size", 20)
     b.add_child(l)
     var play := Button.new()
-    play.text = "DEPLOY WITH %s   ▶" % w.name
+    play.text = "DEPLOY WITH %s   ▶" % w["name"]
     play.custom_minimum_size.y = 60
     play.add_theme_font_size_override("font_size", 21)
     play.pressed.connect(_start_battle)
@@ -281,18 +281,18 @@ func _inventory_tab() -> void:
     for i in weapons.size():
         var w: Dictionary = weapons[i]
         var button := Button.new()
-        var state := "EQUIPPED" if i == selected_weapon else ("OWNED" if owned[i] else str(w.cost) + " CREDITS")
-        button.text = w.name + "   |   " + w.type + "   |   " + state
+        var state := "EQUIPPED" if i == selected_weapon else ("OWNED" if owned[i] else str(w["cost"]) + " CREDITS")
+        button.text = w["name"] + "   |   " + w["type"] + "   |   " + state
         button.custom_minimum_size.y = 48
         button.pressed.connect(_equip.bind(i))
         b.add_child(button)
 
 func _equip(i: int) -> void:
     if not owned[i]:
-        if credits < int(weapons[i].cost):
+        if credits < int(weapons[i]["cost"]):
             status_label.text = "● NOT ENOUGH CREDITS"
             return
-        credits -= int(weapons[i].cost)
+        credits -= int(weapons[i]["cost"])
         owned[i] = true
     selected_weapon = i
     _save_profile()
